@@ -1,0 +1,60 @@
+rule featurecounts:
+    input:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/JG5_pass2/Aligned.sortedByCoord.out.bam',
+        gtf = '/research/references/chlamydomonas/JG5.v1/JG5.v1.genome_w_organelles.gtf'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/gene_count/JG5_genes_count2'
+    threads: 16
+    shell:
+        "featureCounts -p -O -T 16 -t gene -g ID -a {input.gtf} -o {output[0]} {input[0]}"
+
+rule featurecounts2:
+    input:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/JG5_pass2/Aligned.sortedByCoord.out.bam',
+        gtf = '/research/projects/chlamydomonas/NIexpression/genome_info/JG5/JG5-1.v1.genome_w_organelles.gtf'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/gene_count/JG5_genes_count'
+    threads: 16
+    shell:
+        "featureCounts -p -O -T 16 -t transcript -g gene_id -a {input.gtf} -o {output[0]} {input[0]}"
+
+rule pass:
+    input:
+        R1 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/JG5_1_1.fq.gz',
+        R2 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/JG5_1_2.fq.gz',
+        ref_dir = '/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_JG5'
+    params:
+        outdir = '/research/projects/chlamydomonas/NIexpression/data/bam/JG5_pass2',
+        id = 'JG5'
+    output:
+        'JG5_pass2/Aligned.sortedByCoord.out.bam'
+    threads: 8
+    shell:
+        'cd /research/projects/chlamydomonas/NIexpression/data/bam && rm -rf {params.outdir} && mkdir {params.outdir} && cd ~ && cd {params.outdir} && STAR --runMode alignReads --alignIntronMax 5000 --runThreadN {threads} --genomeDir {input.ref_dir} --readFilesIn {input.R1} {input.R2} --outFilterMismatchNoverLmax 0.03 --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --outSAMattrRGline ID:{params.id} --outReadsUnmapped Fastx --outSAMunmapped Within --quantMode GeneCounts --twopassMode Basic && cd ~'
+
+rule bam_index2:
+    input:
+        bam_1 = '/research/projects/chlamydomonas/NIexpression/data/bam/JG5_pass2/Aligned.sortedByCoord.bam'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/JG5_pass2/Aligned.sortedByCoord.bam.bai'
+    shell:
+        'samtools index {input.bam_1}'
+
+rule bam_index:
+    input:
+        bam = '/research/projects/chlamydomonas/NIexpression/data/bam/JG5_pass2/Aligned.sortedByCoord.out.bam'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/JG5_pass2/Aligned.sortedByCoord.out.bam.bai'
+    shell:
+        'samtools index {input.bam}'        
+
+rule genome_index_JG5:
+    input: 
+        fasta = '/research/projects/chlamydomonas/NIexpression/genome_info/JG5/JG5-1_filtered_length_assembly_single_mt_cp.fasta',
+        gff = '/research/references/chlamydomonas/JG5.v1/JG5.v1.genome_w_organelles.gtf'
+        
+    output:
+        directory('/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_JG5')
+    threads: 8
+    shell:
+        'STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {output} --genomeFastaFiles {input.fasta} --sjdbGTFfile {input.gff} --sjdbOverhang 99 --sjdbGTFfeatureExon CDS'

@@ -1,0 +1,62 @@
+rule featurecounts:
+    input:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Malaysian_pass2/Aligned.sortedByCoord.out.bam',
+        gtf = '/research/projects/chlamydomonas/NIexpression/genome_info/Malaysian/Cmalay.v1.genome_w_organelles.gtf'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/gene_count/Malaysian_genes_count'
+    threads: 16
+    shell:
+        "featureCounts -p -O -T 16 -t transcript -g transcript_id -a {input.gtf} -o {output[0]} {input[0]}"
+
+rule pass:
+    input:
+        R1 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/Malaysian_1.fq.gz',
+        R2 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/Malaysian_2.fq.gz',
+        ref_dir = '/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_Mal2'
+    params:
+        outdir = '/research/projects/chlamydomonas/NIexpression/data/bam/Malaysian_pass2',
+        id = 'Malaysian'
+    output:
+        'Malaysian_pass2/Aligned.sortedByCoord.out.bam'
+    threads: 8
+    shell:
+        'cd /research/projects/chlamydomonas/NIexpression/data/bam && rm -rf {params.outdir} && mkdir {params.outdir} && cd ~ && cd {params.outdir} && STAR --runMode alignReads --alignIntronMax 5000 --runThreadN {threads} --genomeDir {input.ref_dir} --readFilesIn {input.R1} {input.R2} --outFilterMismatchNoverLmax 0.03 --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --outSAMattrRGline ID:{params.id} --outReadsUnmapped Fastx --outSAMunmapped Within --quantMode GeneCounts --twopassMode Basic && cd ~'
+
+rule genome_index_Mal2:
+    input: 
+        gff = '/research/projects/chlamydomonas/NIexpression/genome_info/Malaysian/Cmalay.v1.genome_w_organelles.gtf',
+        fasta = '/research/references/chlamydomonas/Cmalay.v1/Cmalay.v1.genome_w_organelles.fasta'
+    output:
+        directory('/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_Mal2')
+    threads: 8
+    shell:
+        'STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {output} --genomeFastaFiles {input.fasta} --sjdbGTFfile {input.gff} --sjdbGTFtagExonParentTranscript transcript_id --sjdbOverhang 99'
+        
+
+rule bam_index2:
+    input:
+        bam_1 = '/research/projects/chlamydomonas/NIexpression/data/bam/Malaysian_pass2/Aligned.sortedByCoord.out.bam'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Malaysian_pass2/Aligned.sortedByCoord.out.bam.bai'
+    shell:
+        'samtools index {input.bam_1}'
+
+rule genome_index_Mal:
+    input: 
+        gff = '/research/references/chlamydomonas/Cmalay.v1/Cmalay.v1.genome_w_organelles.gtf',
+        fasta = '/research/references/chlamydomonas/Cmalay.v1/Cmalay.v1.genome_w_organelles.fasta'
+    output:
+        directory('/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_Mal')
+    threads: 8
+    shell:
+        'STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {output} --genomeFastaFiles {input.fasta} --sjdbGTFfile {input.gff} --sjdbGTFtagExonParentTranscript Parent --sjdbOverhang 99'
+
+rule bam_index:
+    input:
+        bam = '/research/projects/chlamydomonas/NIexpression/data/bam/Malaysian_pass3/Aligned.sortedByCoord.out.bam'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Malaysian_pass3/Aligned.sortedByCoord.out.bam.bai'
+    shell:
+        'samtools index {input.bam}'
+
+

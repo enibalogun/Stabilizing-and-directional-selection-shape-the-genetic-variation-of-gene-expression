@@ -1,0 +1,76 @@
+rule featurecounts:
+    input:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass2/Aligned.sortedByCoord.bam',
+        gtf = '/research/projects/chlamydomonas/NIexpression/genome_info/Cschloesseri/Chlamydomonas_schloesseri.braker2.gtf'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/gene_count/Schloesseri_genes_count'
+    threads: 16
+    shell:
+        "featureCounts -p -O -T 16 -t transcript -g gene_id -a {input.gtf} -o {output[0]} {input[0]}"
+
+rule bam_index2:
+    input:
+        bam_1 = '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass2/Aligned.sortedByCoord.bam'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass2/Aligned.sortedByCoord.bam.bai'
+    shell:
+        'samtools index {input.bam_1}'
+
+rule bam_index:
+    input:
+        bam = '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass2/Aligned.sortedByCoord.out.bam'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass2/Aligned.sortedByCoord.out.bam.bai'
+    shell:
+        'samtools index {input.bam}'
+
+rule pass_2:
+    input:
+        R1 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/Cschloesseri_1.fq.gz',
+        R2 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/Cschloesseri_2.fq.gz',
+        ref_dir = '/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_Sch',
+        SJfiles = '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass1SJ.filtered.tab'
+    params:
+        outdir = '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass2',
+        id = 'Schloesseri'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass2/Aligned.sortedByCoord.out.bam'
+    threads: 8
+    shell:
+        'cd /research/projects/chlamydomonas/NIexpression/data/bam && rm -rf {params.outdir} && mkdir {params.outdir} && cd ~ && cd {params.outdir} && STAR --runMode alignReads --alignIntronMax 5000 --runThreadN {threads} --genomeDir {input.ref_dir} --sjdbOverhang 99 --outFilterMismatchNoverLmax 0.03 --readFilesIn {input.R1} {input.R2} --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --sjdbFileChrStartEnd {input.SJfiles} --outSAMattrRGline ID:{params.id} --quantMode GeneCounts && cd ~'
+
+rule filter:
+    input:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass1/SJ.out.tab'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass1SJ.filtered.tab'
+    threads:8
+    shell:
+        '''awk "{{if (\$7 >= 3) print \$0}}" {input[0]} > {input[0]}.filtered && '''
+        'mv {input[0]}.filtered {output}'
+
+rule pass_1:
+    input:
+        R1 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/Cschloesseri_1.fq.gz',
+        R2 = '/research/projects/chlamydomonas/NIexpression/raw_data/diverged_lines/Cschloesseri_2.fq.gz',
+        ref_dir = '/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_Sch'
+    params:
+        outdir = '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass1',
+        rmbam = '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass1/Aligned.out.bam',
+        rmsam = '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass1/Aligned.out.sam'
+    output:
+        '/research/projects/chlamydomonas/NIexpression/data/bam/Schloesseri_pass1/SJ.out.tab'
+    threads: 8
+    shell:
+        'rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && STAR --runMode alignReads --alignIntronMax 5000 --runThreadN {threads} --genomeDir {input.ref_dir} --sjdbOverhang 99 --outFilterMismatchNoverLmax 0.03 --readFilesIn {input.R1} {input.R2} --readFilesCommand zcat --outSAMtype BAM Unsorted && rm -rf {params.rmbam} && rm -rf {params.rmsam} && cd ../'
+        
+        
+rule genome_index_Sch:
+    input: 
+        gff = '/research/projects/chlamydomonas/NIexpression/genome_info/Cschloesseri/Chlamydomonas_schloesseri.braker2.gtf',
+        fasta = '/research/projects/chlamydomonas/NIexpression/genome_info/Cschloesseri/Chlamydomonas_schloesseri.V1_5.with_organelles.fa'
+    output:
+        directory('/research/projects/chlamydomonas/NIexpression/data/genome_index/genome_index_Sch')
+    threads: 8
+    shell:
+        'STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {output} --genomeFastaFiles {input.fasta} --sjdbGTFfile {input.gff} --sjdbOverhang 99'

@@ -1,0 +1,11 @@
+prefix = "/research/projects/chlamydomonas/NIexpression/"
+ 
+rule genome_index:
+    input: 
+        fasta = '/research/projects/chlamydomonas/NIexpression/genome_info/CC4532.w_organelles_MTplus.fa',
+        gtf = '/research/projects/chlamydomonas/NIexpression/genome_info/CC4532.v1_1.gene_exons.gtf'
+    output:
+        directory(prefix + 'data/genome_index/genome_index_v6')
+    threads: 8
+    shell:
+        'STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {output} --genomeFastaFiles {input.fasta} --sjdbGTFfile {input.gtf} --sjdbOverhang 99 --outFilterMismatchNoverLmax 0.2 --outFilterMismatchNmax 15'
